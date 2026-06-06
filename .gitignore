@@ -1,0 +1,11 @@
+# Fichiers d'environnement (Ne JAMAIS uploader la clé API)
+.env
+
+# Fichiers temporaires Python
+__pycache__/
+*.pyc
+
+# Dossiers virtuels (si vous en avez créés)
+venv/
+env/
+.venv/
