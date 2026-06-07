@@ -14,9 +14,9 @@ load_dotenv()
 # Configuration (Chemins relatifs pour Render/Linux)
 CHROMA_DB_DIR = "./chroma_db"
 # Utilisation du modèle Llama 3.3 70B via Groq
-LLM_MODEL = "llama-3.3-70b-versatile" 
+LLM_MODEL = "llama-3.1-8b-instant" 
 
-st.set_page_config(page_title="Agent Expert Nano/Micro Poudres (Groq Cloud)", page_icon="🔬", layout="wide")
+st.set_page_config(page_title="Agent Expert Nano/Micro Poudres", page_icon="🔬", layout="wide")
 
 @st.cache_resource
 def load_rag_system():
@@ -56,7 +56,8 @@ def load_rag_system():
     return rag_chain, retriever
 
 st.title("🔬 Agent Expert : Nano & Micro Poudres")
-st.markdown("Propulsé par **Llama-3-70B** via le Cloud ultra-rapide **Groq**.")
+st.markdown("V0.1")
+##st.markdown("Propulsé par **llama-3.1-8b-instant** via le Cloud ultra-rapide **Groq**.")
 
 # Vérification de l'API Key
 if not os.getenv("GROQ_API_KEY"):
