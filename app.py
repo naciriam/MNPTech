@@ -13,8 +13,8 @@ load_dotenv()
 
 # Configuration (Chemins relatifs pour Render/Linux)
 CHROMA_DB_DIR = "./chroma_db"
-# Utilisation du modèle Llama 3 70B via Groq
-LLM_MODEL = "llama3-70b-8192" 
+# Utilisation du modèle Llama 3.1 70B via Groq
+LLM_MODEL = "llama-3.1-70b-versatile" 
 
 st.set_page_config(page_title="Agent Expert Nano/Micro Poudres (Groq Cloud)", page_icon="🔬", layout="wide")
 
