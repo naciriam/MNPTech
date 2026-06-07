@@ -2,7 +2,7 @@ import os
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_groq import ChatGroq
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -20,8 +20,8 @@ st.set_page_config(page_title="Agent Expert Nano/Micro Poudres (Groq Cloud)", pa
 
 @st.cache_resource
 def load_rag_system():
-    # 1. Charger les embeddings (Reste local pour la confidentialité de la base)
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    # 1. Charger les embeddings ultra-légers
+    embeddings = FastEmbedEmbeddings()
     
     # 2. Connecter la base de données vectorielle locale
     vectorstore = Chroma(persist_directory=CHROMA_DB_DIR, embedding_function=embeddings)

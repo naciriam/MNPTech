@@ -1,7 +1,7 @@
 import os
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import MarkdownTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_chroma import Chroma
 
 # Configuration des chemins (Chemins relatifs pour compatibilité Cloud/Linux)
@@ -13,8 +13,7 @@ def main():
     
     # 1. Chargement des 350 fichiers Markdown
     print(f"📂 Lecture des fichiers dans : {KB_DIR}")
-    # On utilise TextLoader car les fichiers sont en UTF-8 standard
-    loader = DirectoryLoader(KB_DIR, glob="**/*.md", loader_cls=TextLoader, loader_kwargs={'autodetect_encoding': True})
+    loader = DirectoryLoader(KB_DIR, glob="**/*.md", loader_cls=TextLoader, loader_kwargs={'encoding': 'utf-8'})
     docs = loader.load()
     print(f"✅ {len(docs)} fichiers chargés avec succès.")
 
@@ -26,10 +25,9 @@ def main():
     print(f"✅ {len(splits)} chunks générés.")
 
     # 3. Création des Embeddings (Vectorisation)
-    # Nous utilisons un modèle open-source léger et très performant (all-MiniLM-L6-v2) 
-    # qui va tourner localement sur le processeur pour transformer le texte en vecteurs.
-    print("🧠 Chargement du modèle de vectorisation local (HuggingFace)...")
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    # Nous utilisons FastEmbed, une librairie ultra-légère optimisée pour la faible mémoire RAM (Render)
+    print("🧠 Chargement du modèle de vectorisation local (FastEmbed)...")
+    embeddings = FastEmbedEmbeddings()
 
     # 4. Stockage dans la base vectorielle ChromaDB
     print(f"💾 Sauvegarde dans la base vectorielle : {CHROMA_DB_DIR}")

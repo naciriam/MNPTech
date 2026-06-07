@@ -2,7 +2,7 @@ langchain
 langchain-community
 langchain-chroma
 chromadb
-sentence-transformers
+fastembed
 streamlit
 markdown
 langchain-groq
