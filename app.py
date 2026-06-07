@@ -4,9 +4,9 @@ from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_groq import ChatGroq
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
 
 # Charger les variables d'environnement (Clé API Groq)
 load_dotenv()
@@ -25,10 +25,9 @@ def load_rag_system():
     
     # 2. Connecter la base de données vectorielle locale
     vectorstore = Chroma(persist_directory=CHROMA_DB_DIR, embedding_function=embeddings)
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 4}) # On récupère les 4 meilleurs passages
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 4}) 
     
     # 3. Connecter le LLM Cloud Ultra-Rapide (via Groq API)
-    # L'API Key est automatiquement récupérée depuis le fichier .env
     llm = ChatGroq(model_name=LLM_MODEL, temperature=0.2)
     
     # 4. Créer le Prompt RAG expert
@@ -43,11 +42,18 @@ def load_rag_system():
         ("human", "{input}"),
     ])
     
-    # 5. Assembler la chaîne de génération
-    question_answer_chain = create_stuff_documents_chain(llm, prompt)
-    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
+    # 5. Assembler la chaîne avec LCEL (LangChain Expression Language)
+    def format_docs(docs):
+        return "\n\n".join(doc.page_content for doc in docs)
+        
+    rag_chain = (
+        {"context": retriever | format_docs, "input": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
     
-    return rag_chain
+    return rag_chain, retriever
 
 st.title("🔬 Agent Expert : Nano & Micro Poudres")
 st.markdown("Propulsé par **Llama-3-70B** via le Cloud ultra-rapide **Groq**.")
@@ -60,7 +66,7 @@ if not os.getenv("GROQ_API_KEY"):
 # Initialisation
 with st.spinner("Chargement de la base de données locale..."):
     try:
-        rag_chain = load_rag_system()
+        rag_chain, retriever = load_rag_system()
     except Exception as e:
         st.error(f"Erreur de connexion à la base de données. Avez-vous exécuté indexer.py ?\n\nErreur détaillée : {e}")
         st.stop()
@@ -82,16 +88,17 @@ if question := st.chat_input("Posez votre question scientifique ici..."):
     with st.chat_message("assistant"):
         with st.spinner("Analyse par le modèle Groq..."):
             try:
-                # Exécution de la chaîne RAG via Groq
-                response = rag_chain.invoke({"input": question})
-                answer = response["answer"]
+                # Exécution manuelle pour récupérer les documents (sources)
+                docs = retriever.invoke(question)
+                
+                # Exécution de la chaîne LCEL pour obtenir la réponse
+                answer = rag_chain.invoke(question)
                 
                 # Formatage des sources
                 sources = []
-                for doc in response["context"]:
+                for doc in docs:
                     source_name = doc.metadata.get('source', 'Document Inconnu')
-                    # Extraire le nom de fichier propre du chemin absolu
-                    clean_name = source_name.split('\\')[-1]
+                    clean_name = source_name.split('\\')[-1].split('/')[-1] # Compatibilité Windows/Linux
                     if clean_name not in sources:
                         sources.append(clean_name)
                 
