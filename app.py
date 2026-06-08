@@ -14,7 +14,7 @@ load_dotenv()
 # Configuration (Chemins relatifs pour Render/Linux)
 CHROMA_DB_DIR = "./chroma_db"
 # Utilisation du modèle Llama 3.3 70B via Groq
-LLM_MODEL = "llama-3.1-8b-instant" 
+LLM_MODEL = "llama-3.3-70b-versatile" 
 
 st.set_page_config(page_title="Agent Expert Nano/Micro Poudres", page_icon="🔬", layout="wide")
 
@@ -56,8 +56,7 @@ def load_rag_system():
     return rag_chain, retriever
 
 st.title("🔬 Agent Expert : Nano & Micro Poudres")
-st.markdown("V0.1")
-##st.markdown("Propulsé par **llama-3.1-8b-instant** via le Cloud ultra-rapide **Groq**.")
+st.markdown(f"**V0.1** — Propulsé par **{LLM_MODEL}** via le Cloud ultra-rapide **Groq**.")
 
 # Vérification de l'API Key
 if not os.getenv("GROQ_API_KEY"):
@@ -95,13 +94,10 @@ if question := st.chat_input("Posez votre question scientifique ici..."):
                 # Exécution de la chaîne LCEL pour obtenir la réponse
                 answer = rag_chain.invoke(question)
                 
-                # Formatage des sources
-                sources = []
-                for doc in docs:
-                    source_name = doc.metadata.get('source', 'Document Inconnu')
-                    clean_name = source_name.split('\\')[-1].split('/')[-1] # Compatibilité Windows/Linux
-                    if clean_name not in sources:
-                        sources.append(clean_name)
+                # Formatage des sources (déduplication avec préservation de l'ordre)
+                raw_sources = [doc.metadata.get('source', 'Document Inconnu') for doc in docs]
+                clean_sources = [src.replace('\\', '/').split('/')[-1] for src in raw_sources]
+                sources = list(dict.fromkeys(clean_sources))
                 
                 # Affichage de la réponse et des sources
                 st.markdown(answer)

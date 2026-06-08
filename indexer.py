@@ -1,4 +1,3 @@
-import os
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import MarkdownTextSplitter
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
