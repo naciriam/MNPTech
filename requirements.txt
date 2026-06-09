@@ -7,4 +7,3 @@ streamlit
 markdown
 langchain-groq
 python-dotenv
-duckduckgo-search==5.3.1

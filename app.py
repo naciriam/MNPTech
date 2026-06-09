@@ -7,7 +7,6 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import MarkdownTextSplitter
 
@@ -98,34 +97,23 @@ if question := st.chat_input("Posez votre question scientifique ici..."):
                 answer = rag_chain.invoke(question)
                 
                 if answer.strip() == "INFO_MISSING":
-                    st.warning("⚠️ Information introuvable dans la base locale. Recherche en ligne et apprentissage en cours...")
+                    st.warning("⚠️ Information introuvable dans la base locale. Génération experte et apprentissage en cours...")
                     
-                    # 1. Recherche Web
-                    with st.spinner("Recherche sur le Web via DuckDuckGo..."):
-                        search = DuckDuckGoSearchRun()
-                        search_results = search.invoke(question)
-                    
-                    if not search_results or search_results.strip() == "":
-                        answer = "Je n'ai malheureusement trouvé aucune information à ce sujet, ni dans ma base, ni sur le web."
-                        st.markdown(answer)
-                        st.session_state.messages.append({"role": "assistant", "content": answer})
-                        st.stop()
-                    
-                    # 2. Répondre à l'utilisateur
-                    with st.spinner("Analyse des résultats Web et rédaction de la réponse..."):
-                        web_prompt = ChatPromptTemplate.from_messages([
-                            ("system", "Vous êtes un ingénieur expert. Répondez à la question de manière concise et professionnelle en utilisant les informations Web suivantes :\n{context}"),
+                    # 1. Réponse directe via le LLM
+                    with st.spinner("Analyse et rédaction de la réponse par l'IA experte..."):
+                        llm = ChatGroq(model_name=LLM_MODEL, temperature=0.2)
+                        direct_prompt = ChatPromptTemplate.from_messages([
+                            ("system", "Vous êtes un ingénieur expert en science des matériaux. Répondez à la question de manière concise et professionnelle en vous basant sur vos vastes connaissances scientifiques internes."),
                             ("human", "{input}")
                         ])
-                        llm = ChatGroq(model_name=LLM_MODEL, temperature=0.2)
-                        web_chain = web_prompt | llm | StrOutputParser()
-                        answer = web_chain.invoke({"context": search_results, "input": question})
+                        direct_chain = direct_prompt | llm | StrOutputParser()
+                        answer = direct_chain.invoke({"input": question})
                     
                     st.markdown(answer)
-                    st.info("🌐 **Sources utilisées :** Recherche Web en temps réel")
+                    st.info("🧠 **Sources utilisées :** Connaissances internes du modèle (Apprentissage auto)")
                     st.session_state.messages.append({"role": "assistant", "content": answer})
                     
-                    # 3. Génération de la fiche experte pour auto-apprentissage (MEME PROMPT QU'AVANT)
+                    # 2. Génération de la fiche experte pour auto-apprentissage (Comme le script de masse)
                     with st.spinner("Auto-apprentissage : Création et mémorisation de la nouvelle fiche experte (150-350 lignes)..."):
                         kb_dir = "./kb_files" if os.path.exists("./kb_files") else "../kb_files"
                         
@@ -147,7 +135,6 @@ if question := st.chat_input("Posez votre question scientifique ici..."):
                             ("system", (
                                 "Vous êtes un ingénieur expert en science des matériaux.\n"
                                 "Votre mission est de rédiger une fiche experte complète (format Markdown) sur le matériau ou le sujet suivant : {sujet_clean}\n\n"
-                                "Pour rédiger cette fiche, appuyez-vous sur vos connaissances d'expert ET sur les informations suivantes issues du Web :\n{context}\n\n"
                                 "Consignes strictes :\n"
                                 "- Le fichier doit faire entre 150 et 350 lignes.\n"
                                 "- Langue : Français de niveau expert académique/industriel.\n"
@@ -159,7 +146,6 @@ if question := st.chat_input("Posez votre question scientifique ici..."):
                         fiche_chain = fiche_prompt | llm | StrOutputParser()
                         markdown_content = fiche_chain.invoke({
                             "sujet_clean": sujet_clean,
-                            "context": search_results,
                             "index": next_index
                         })
                         
