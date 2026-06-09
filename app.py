@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_chroma import Chroma
+from langchain_pinecone import PineconeVectorStore
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
@@ -14,7 +14,6 @@ from langchain_text_splitters import MarkdownTextSplitter
 load_dotenv()
 
 # Configuration (Chemins relatifs pour Render/Linux)
-CHROMA_DB_DIR = "./chroma_db"
 # Utilisation du modèle Llama 3.3 70B via Groq
 LLM_MODEL = "llama-3.3-70b-versatile" 
 
@@ -25,8 +24,9 @@ def load_rag_system():
     # 1. Charger les embeddings ultra-légers
     embeddings = FastEmbedEmbeddings()
     
-    # 2. Connecter la base de données vectorielle locale
-    vectorstore = Chroma(persist_directory=CHROMA_DB_DIR, embedding_function=embeddings)
+    # 2. Connecter la base de données vectorielle Cloud (Pinecone)
+    index_name = "mnptech-kb"
+    vectorstore = PineconeVectorStore(index_name=index_name, embedding=embeddings)
     retriever = vectorstore.as_retriever(search_kwargs={"k": 4}) 
     
     # 3. Connecter le LLM Cloud Ultra-Rapide (via Groq API)
@@ -60,9 +60,13 @@ def load_rag_system():
 st.title("🔬 Agent Expert : Nano & Micro Poudres")
 st.markdown(f"**V0.1** — Propulsé par **{LLM_MODEL}** via le Cloud ultra-rapide **Groq**.")
 
-# Vérification de l'API Key
+# Vérification des clés API
 if not os.getenv("GROQ_API_KEY"):
     st.error("Erreur : La clé GROQ_API_KEY est introuvable. Vérifiez le fichier .env.")
+    st.stop()
+
+if not os.getenv("PINECONE_API_KEY"):
+    st.error("Erreur : La clé PINECONE_API_KEY est introuvable. Ajoutez-la dans le fichier .env ou dans les réglages de Render.")
     st.stop()
 
 # Initialisation
