@@ -113,66 +113,116 @@ if question := st.chat_input("Posez votre question scientifique ici..."):
                     st.info("🧠 **Sources utilisées :** Connaissances internes du modèle (Apprentissage auto)")
                     st.session_state.messages.append({"role": "assistant", "content": answer})
                     
-                    # 2. Génération de la fiche experte pour auto-apprentissage (Comme le script de masse)
-                    with st.spinner("Auto-apprentissage : Création et mémorisation de la nouvelle fiche experte (150-350 lignes)..."):
-                        kb_dir = "./kb_files"
-                        os.makedirs(kb_dir, exist_ok=True)
+                    # 2. Déterminer si c'est un nouveau sujet ou l'approfondissement d'un sujet existant
+                    with st.spinner("Analyse du contexte pour l'auto-apprentissage..."):
+                        # on récupère les noms de fichiers des sources trouvées pour cette question
+                        raw_sources = [doc.metadata.get('source', '') for doc in docs]
+                        clean_sources = list(dict.fromkeys([src.replace('\\', '/').split('/')[-1] for src in raw_sources if src]))
                         
-                        max_idx = 0
-                        for f in os.listdir(kb_dir):
-                            if f.endswith('.md') and f.startswith('KB-'):
-                                try:
-                                    num = int(f.split('_')[0].replace('KB-', ''))
-                                    if num > max_idx:
-                                        max_idx = num
-                                except:
-                                    pass
-                        
-                        # Si le dossier vient d'être créé sur Render, on commence la numérotation à 1000
-                        if max_idx == 0:
-                            max_idx = 1000
-                            
-                        next_index = max_idx + 1
-                        
-                        sujet_clean = question.replace('?', '').replace('!', '').replace(':', '').strip().capitalize()
-                        
-                        fiche_prompt = ChatPromptTemplate.from_messages([
+                        router_prompt = ChatPromptTemplate.from_messages([
                             ("system", (
-                                "Vous êtes un ingénieur expert en science des matériaux.\n"
-                                "Votre mission est de rédiger une fiche experte complète (format Markdown) sur le matériau ou le sujet suivant : {sujet_clean}\n\n"
-                                "Consignes strictes :\n"
-                                "- Le fichier doit faire entre 150 et 350 lignes.\n"
-                                "- Langue : Français de niveau expert académique/industriel.\n"
-                                "- Structure attendue : Titre principal H1 : '# KB-{index} — {sujet_clean}', suivi de chapitres H2 (Propriétés, Fabrication, Utilisations, Normes), de listes et d'exemples précis.\n"
-                                "- Ne produisez QUE le code Markdown."
+                                "Vous êtes un système de classification documentaire.\n"
+                                "Voici une question d'un utilisateur : {question}\n"
+                                "Voici les fichiers de référence trouvés dans la base de données : {sources}\n"
+                                "La question de l'utilisateur est-elle un approfondissement d'un des fichiers listés ci-dessus, ou bien aborde-t-elle un sujet totalement nouveau ?\n"
+                                "- Si c'est un approfondissement d'un fichier pertinent, répondez STRICTEMENT par le nom exact du fichier concerné (ex: KB-145_Silicium.md).\n"
+                                "- Si c'est un nouveau sujet, ou si la liste des fichiers est vide/hors sujet, répondez STRICTEMENT par le mot exact : NEW_SUBJECT\n"
+                                "Ne dites absolument rien d'autre."
                             ))
                         ])
-                        
-                        fiche_chain = fiche_prompt | llm | StrOutputParser()
-                        markdown_content = fiche_chain.invoke({
-                            "sujet_clean": sujet_clean,
-                            "index": next_index
-                        })
-                        
-                        # Sauvegarde physique
-                        filename_slug = "".join(c for c in sujet_clean if c.isalnum() or c in (' ', '_', '-')).replace(' ', '_')[:40]
-                        new_filepath = os.path.join(kb_dir, f"KB-{next_index}_{filename_slug}.md")
-                        
-                        with open(new_filepath, "w", encoding="utf-8") as f:
-                            f.write(markdown_content)
+                        router_chain = router_prompt | llm | StrOutputParser()
+                        route = router_chain.invoke({"question": question, "sources": ", ".join(clean_sources) if clean_sources else "Aucune source pertinente."})
+                        route = route.strip()
+
+                    kb_dir = "./kb_files"
+                    os.makedirs(kb_dir, exist_ok=True)
+                    
+                    if route == "NEW_SUBJECT" or not route.startswith("KB-"):
+                        # --- NOUVEAU FICHIER ---
+                        with st.spinner("Auto-apprentissage : Création d'une NOUVELLE fiche experte (très détaillée)..."):
+                            max_idx = 0
+                            for f in os.listdir(kb_dir):
+                                if f.endswith('.md') and f.startswith('KB-'):
+                                    try:
+                                        num = int(f.split('_')[0].replace('KB-', ''))
+                                        if num > max_idx:
+                                            max_idx = num
+                                    except:
+                                        pass
                             
-                        # Injection dans ChromaDB (Vectorisation dynamique)
-                        try:
-                            loader = TextLoader(new_filepath, encoding='utf-8')
-                            new_docs = loader.load()
-                            text_splitter = MarkdownTextSplitter(chunk_size=1000, chunk_overlap=200)
-                            new_splits = text_splitter.split_documents(new_docs)
+                            if max_idx == 0:
+                                max_idx = 1000
+                                
+                            next_index = max_idx + 1
+                            sujet_clean = question.replace('?', '').replace('!', '').replace(':', '').strip().capitalize()
                             
-                            vectorstore.add_documents(new_splits)
+                            fiche_prompt = ChatPromptTemplate.from_messages([
+                                ("system", (
+                                    "Vous êtes un ingénieur expert en science des matériaux.\n"
+                                    "Votre mission est de rédiger une fiche experte complète (format Markdown) sur le matériau ou le sujet suivant : {sujet_clean}\n\n"
+                                    "Consignes strictes :\n"
+                                    "- Le fichier doit être très long, encyclopédique et approfondi (150 à 350 lignes minimum).\n"
+                                    "- Ne soyez surtout pas bref. Rédigez plusieurs paragraphes très détaillés pour chaque section.\n"
+                                    "- Langue : Français de niveau expert académique/industriel.\n"
+                                    "- Structure attendue : Titre principal H1 : '# KB-{index} — {sujet_clean}', suivi de chapitres H2 (Propriétés, Fabrication, Utilisations, Normes), de listes et d'exemples précis.\n"
+                                    "- Ne produisez QUE le code Markdown."
+                                ))
+                            ])
                             
-                            st.success(f"🧠 J'ai créé et mémorisé de manière permanente la nouvelle fiche experte : KB-{next_index}_{filename_slug}.md")
-                        except Exception as e:
-                            st.error(f"Erreur lors de l'indexation de la nouvelle fiche : {e}")
+                            fiche_chain = fiche_prompt | llm | StrOutputParser()
+                            new_content = fiche_chain.invoke({"sujet_clean": sujet_clean, "index": next_index})
+                            
+                            filename_slug = "".join(c for c in sujet_clean if c.isalnum() or c in (' ', '_', '-')).replace(' ', '_')[:40]
+                            filepath = os.path.join(kb_dir, f"KB-{next_index}_{filename_slug}.md")
+                            
+                            with open(filepath, "w", encoding="utf-8") as f:
+                                f.write(new_content)
+                                
+                            st.success(f"🧠 J'ai créé et mémorisé une NOUVELLE fiche experte : KB-{next_index}_{filename_slug}.md")
+                    else:
+                        # --- COMPLETION DE FICHIER EXISTANT ---
+                        with st.spinner(f"Auto-apprentissage : Complétion approfondie de la fiche existante {route}..."):
+                            filepath = os.path.join(kb_dir, route)
+                            
+                            # On génère un chapitre supplémentaire très long
+                            fiche_prompt = ChatPromptTemplate.from_messages([
+                                ("system", (
+                                    "Vous êtes un ingénieur expert en science des matériaux.\n"
+                                    "Vous devez rédiger un nouveau chapitre ultra-détaillé en Markdown pour compléter une fiche existante sur le sujet.\n"
+                                    "La question spécifique à développer est : {question}\n\n"
+                                    "Consignes strictes :\n"
+                                    "- Le contenu doit être extrêmement détaillé et encyclopédique (50 à 150 lignes minimum).\n"
+                                    "- Ne soyez pas bref. Rédigez des paragraphes longs, techniques et exhaustifs.\n"
+                                    "- Langue : Français de niveau expert.\n"
+                                    "- Commencez par un titre H2 (##) correspondant à la thématique abordée.\n"
+                                    "- Ne produisez QUE le code Markdown du nouveau chapitre (pas de H1, pas d'introduction générale)."
+                                ))
+                            ])
+                            
+                            fiche_chain = fiche_prompt | llm | StrOutputParser()
+                            new_content = "\n\n" + fiche_chain.invoke({"question": question})
+                            
+                            if os.path.exists(filepath):
+                                with open(filepath, "a", encoding="utf-8") as f:
+                                    f.write(new_content)
+                            else:
+                                # Fallback au cas où le fichier n'est pas trouvé physiquement (ex: sur Render sans le repo kb_files complet)
+                                with open(filepath, "w", encoding="utf-8") as f:
+                                    f.write(f"# Fiche reconstituée : {route}\n" + new_content)
+                                    
+                            st.success(f"🧠 J'ai approfondi mes connaissances en ajoutant un long chapitre à la fiche : {route}")
+                            
+                    # Injection dans ChromaDB (Vectorisation dynamique de la NOUVELLE portion uniquement)
+                    try:
+                        from langchain_core.documents import Document
+                        # On charge le nouveau contenu directement en mémoire pour ne vectoriser QUE le nouveau texte (gain mémoire et temps)
+                        new_docs = [Document(page_content=new_content, metadata={"source": filepath})]
+                        text_splitter = MarkdownTextSplitter(chunk_size=1000, chunk_overlap=200)
+                        new_splits = text_splitter.split_documents(new_docs)
+                        
+                        vectorstore.add_documents(new_splits)
+                    except Exception as e:
+                        st.error(f"Erreur lors de l'indexation de la nouvelle information : {e}")
 
                 else:
                     # Formatage normal des sources (déduplication avec préservation de l'ordre)
