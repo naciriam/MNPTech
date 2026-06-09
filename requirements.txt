@@ -7,3 +7,4 @@ streamlit
 markdown
 langchain-groq
 python-dotenv
+duckduckgo-search
