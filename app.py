@@ -55,7 +55,7 @@ def load_rag_system():
         | StrOutputParser()
     )
     
-    return rag_chain, retriever
+    return rag_chain, retriever, vectorstore
 
 st.title("🔬 Agent Expert : Nano & Micro Poudres")
 st.markdown(f"**V0.1** — Propulsé par **{LLM_MODEL}** via le Cloud ultra-rapide **Groq**.")
@@ -68,7 +68,7 @@ if not os.getenv("GROQ_API_KEY"):
 # Initialisation
 with st.spinner("Chargement de la base de données locale..."):
     try:
-        rag_chain, retriever = load_rag_system()
+        rag_chain, retriever, vectorstore = load_rag_system()
     except Exception as e:
         st.error(f"Erreur de connexion à la base de données. Avez-vous exécuté indexer.py ?\n\nErreur détaillée : {e}")
         st.stop()
@@ -168,7 +168,6 @@ if question := st.chat_input("Posez votre question scientifique ici..."):
                             text_splitter = MarkdownTextSplitter(chunk_size=1000, chunk_overlap=200)
                             new_splits = text_splitter.split_documents(new_docs)
                             
-                            vectorstore = Chroma(persist_directory=CHROMA_DB_DIR, embedding_function=FastEmbedEmbeddings())
                             vectorstore.add_documents(new_splits)
                             
                             st.success(f"🧠 J'ai créé et mémorisé de manière permanente la nouvelle fiche experte : KB-{next_index}_{filename_slug}.md")
