@@ -115,18 +115,23 @@ if question := st.chat_input("Posez votre question scientifique ici..."):
                     
                     # 2. Génération de la fiche experte pour auto-apprentissage (Comme le script de masse)
                     with st.spinner("Auto-apprentissage : Création et mémorisation de la nouvelle fiche experte (150-350 lignes)..."):
-                        kb_dir = "./kb_files" if os.path.exists("./kb_files") else "../kb_files"
+                        kb_dir = "./kb_files"
+                        os.makedirs(kb_dir, exist_ok=True)
                         
                         max_idx = 0
-                        if os.path.exists(kb_dir):
-                            for f in os.listdir(kb_dir):
-                                if f.endswith('.md') and f.startswith('KB-'):
-                                    try:
-                                        num = int(f.split('_')[0].replace('KB-', ''))
-                                        if num > max_idx:
-                                            max_idx = num
-                                    except:
-                                        pass
+                        for f in os.listdir(kb_dir):
+                            if f.endswith('.md') and f.startswith('KB-'):
+                                try:
+                                    num = int(f.split('_')[0].replace('KB-', ''))
+                                    if num > max_idx:
+                                        max_idx = num
+                                except:
+                                    pass
+                        
+                        # Si le dossier vient d'être créé sur Render, on commence la numérotation à 1000
+                        if max_idx == 0:
+                            max_idx = 1000
+                            
                         next_index = max_idx + 1
                         
                         sujet_clean = question.replace('?', '').replace('!', '').replace(':', '').strip().capitalize()
