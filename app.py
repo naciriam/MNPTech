@@ -27,7 +27,7 @@ def load_rag_system():
     # 2. Connecter la base de données vectorielle Cloud (Pinecone)
     index_name = "mnptech-kb"
     vectorstore = PineconeVectorStore(index_name=index_name, embedding=embeddings)
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 4}) 
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 10}) 
     
     # 3. Connecter le LLM Cloud Ultra-Rapide (via Groq API)
     llm = ChatGroq(model_name=LLM_MODEL, temperature=0.2)
@@ -128,8 +128,8 @@ if question := st.chat_input("Posez votre question scientifique ici..."):
                                 "Vous êtes un système de classification documentaire.\n"
                                 "Voici une question d'un utilisateur : {question}\n"
                                 "Voici les fichiers de référence trouvés dans la base de données : {sources}\n"
-                                "La question de l'utilisateur est-elle un approfondissement d'un des fichiers listés ci-dessus, ou bien aborde-t-elle un sujet totalement nouveau ?\n"
-                                "- Si c'est un approfondissement d'un fichier pertinent, répondez STRICTEMENT par le nom exact du fichier concerné (ex: KB-145_Silicium.md).\n"
+                                "La question de l'utilisateur porte-t-elle sur le MÊME SUJET que l'un des fichiers listés ci-dessus (ou un approfondissement), ou bien aborde-t-elle un sujet totalement nouveau ?\n"
+                                "- Si c'est le même sujet ou un approfondissement d'un fichier pertinent, répondez STRICTEMENT par le nom exact du fichier concerné (ex: KB-145_Silicium.md).\n"
                                 "- Si c'est un nouveau sujet, ou si la liste des fichiers est vide/hors sujet, répondez STRICTEMENT par le mot exact : NEW_SUBJECT\n"
                                 "Ne dites absolument rien d'autre."
                             ))
